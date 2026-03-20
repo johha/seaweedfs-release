@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+
+set -e -u
+
+# BBR Restore Script for SeaweedFS
+
+<% unless p('seaweedfs.backup.enabled') %>
+echo "Backup is disabled via seaweedfs.backup.enabled property"
+exit 0
+<% end %>
+
+BACKUP_DIR="${BBR_ARTIFACT_DIRECTORY}"
+STORE_DIR="/var/vcap/store/seaweedfs"
+
+echo "$(date): Starting SeaweedFS restore"
+echo "Backup directory: ${BACKUP_DIR}"
+
+# Verify backup metadata
+if [ ! -f "${BACKUP_DIR}/metadata.json" ]; then
+  echo "ERROR: metadata.json not found in backup"
+  exit 1
+fi
+
+echo "Backup metadata:"
+cat "${BACKUP_DIR}/metadata.json"
+
+# Stop all SeaweedFS processes
+echo "Stopping SeaweedFS processes..."
+<% if p('seaweedfs.s3.enabled') %>
+/var/vcap/jobs/bpm/bin/bpm stop seaweedfs -p s3 || true
+<% end %>
+/var/vcap/jobs/bpm/bin/bpm stop seaweedfs -p filer || true
+/var/vcap/jobs/bpm/bin/bpm stop seaweedfs -p volume || true
+/var/vcap/jobs/bpm/bin/bpm stop seaweedfs -p master || true
+
+# Give processes time to shutdown
+sleep 5
+
+# Backup existing data (in case restore fails)
+BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+if [ -d "${STORE_DIR}" ]; then
+  echo "Backing up existing data to ${STORE_DIR}.pre-restore.${BACKUP_TIMESTAMP}"
+  mv "${STORE_DIR}" "${STORE_DIR}.pre-restore.${BACKUP_TIMESTAMP}"
+fi
+
+# Create fresh directories
+mkdir -p "${STORE_DIR}"
+mkdir -p "<%= p('seaweedfs.volume.data_dir') %>"
+mkdir -p "<%= p('seaweedfs.filer.data_dir') %>"
+mkdir -p "<%= p('seaweedfs.filer.default_leveldb_dir') %>"
+
+# Find the most recent backup files
+MASTER_BACKUP=$(find "${BACKUP_DIR}" -name "master_*.tar.gz" | sort | tail -1)
+VOLUME_BACKUP=$(find "${BACKUP_DIR}" -name "volume_*.tar.gz" | sort | tail -1)
+FILER_BACKUP=$(find "${BACKUP_DIR}" -name "filer_*.tar.gz" | sort | tail -1)
+FILER_DB_BACKUP=$(find "${BACKUP_DIR}" -name "filer_db_*.tar.gz" | sort | tail -1)
+
+# Restore master data
+echo "Restoring master data..."
+if [ -n "${MASTER_BACKUP}" ] && [ -f "${MASTER_BACKUP}" ]; then
+  tar -xzf "${MASTER_BACKUP}" -C "${STORE_DIR}"
+else
+  echo "ERROR: Master backup not found"
+  exit 1
+fi
+
+# Restore volume data
+echo "Restoring volume data..."
+if [ -n "${VOLUME_BACKUP}" ] && [ -f "${VOLUME_BACKUP}" ]; then
+  tar -xzf "${VOLUME_BACKUP}" -C "$(dirname <%= p('seaweedfs.volume.data_dir') %>)"
+else
+  echo "ERROR: Volume backup not found"
+  exit 1
+fi
+
+# Restore filer data
+echo "Restoring filer data..."
+if [ -n "${FILER_BACKUP}" ] && [ -f "${FILER_BACKUP}" ]; then
+  tar -xzf "${FILER_BACKUP}" -C "$(dirname <%= p('seaweedfs.filer.data_dir') %>)"
+else
+  echo "ERROR: Filer backup not found"
+  exit 1
+fi
+
+# Restore filer database
+echo "Restoring filer database..."
+if [ -n "${FILER_DB_BACKUP}" ] && [ -f "${FILER_DB_BACKUP}" ]; then
+  tar -xzf "${FILER_DB_BACKUP}" -C "$(dirname <%= p('seaweedfs.filer.default_leveldb_dir') %>)"
+else
+  echo "ERROR: Filer database backup not found"
+  exit 1
+fi
+
+# Fix ownership
+echo "Setting ownership..."
+chown -R vcap:vcap "${STORE_DIR}"
+chown -R vcap:vcap "<%= p('seaweedfs.volume.data_dir') %>"
+chown -R vcap:vcap "<%= p('seaweedfs.filer.data_dir') %>"
+chown -R vcap:vcap "<%= p('seaweedfs.filer.default_leveldb_dir') %>"
+
+# Restart SeaweedFS processes
+echo "Starting SeaweedFS processes..."
+/var/vcap/jobs/bpm/bin/bpm start seaweedfs -p master
+sleep 3
+/var/vcap/jobs/bpm/bin/bpm start seaweedfs -p volume
+sleep 3
+/var/vcap/jobs/bpm/bin/bpm start seaweedfs -p filer
+sleep 3
+<% if p('seaweedfs.s3.enabled') %>
+/var/vcap/jobs/bpm/bin/bpm start seaweedfs -p s3
+<% end %>
+
+echo "$(date): Restore completed successfully"
+
+exit 0

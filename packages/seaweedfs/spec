@@ -1,0 +1,8 @@
+---
+name: seaweedfs
+
+dependencies: []
+
+files:
+# renovate: datasource=github-releases depName=seaweedfs/seaweedfs
+- seaweedfs/weed-3.73-linux-amd64.tar.gz

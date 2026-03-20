@@ -1,0 +1,16 @@
+---
+# Example vars file for SeaweedFS deployment
+
+# Domain name for S3 endpoint
+seaweedfs_domain_name: blobstore.system.example.com
+
+# Network and AZ configuration
+# (Adjust based on your BOSH cloud-config)
+# azs:
+#   - z1
+# networks:
+#   - name: default
+# vm_types:
+#   - small
+# persistent_disk_types:
+#   - 100GB

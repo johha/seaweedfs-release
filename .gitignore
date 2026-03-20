@@ -1,0 +1,48 @@
+# BOSH Release artifacts
+config/dev.yml
+config/private.yml
+releases/*.tgz
+releases/**/*.tgz
+dev_releases/
+.dev_builds/
+.final_builds/jobs/**/*.tgz
+.final_builds/packages/**/*.tgz
+.blobs/
+blobs/
+
+# Temporary files and local work
+tmp/
+
+# Dependency management
+.bundle/
+vendor/bundle/
+Gemfile.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*~
+*#
+#*
+.DS_Store
+
+# Build artifacts
+/bin/
+/pkg/
+/tmp/
+
+# Testing
+spec/reports/
+coverage/
+
+# OS
+Thumbs.db
+
+# Logs
+*.log
+
+# Local development
+.envrc
+.env

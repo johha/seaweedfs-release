@@ -1,0 +1,31 @@
+<% if spec.bootstrap %>
+check process master
+  with pidfile /var/vcap/sys/run/bpm/seaweedfs/master.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start seaweedfs -p master"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop seaweedfs -p master"
+  group vcap
+
+check process volume
+  with pidfile /var/vcap/sys/run/bpm/seaweedfs/volume.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start seaweedfs -p volume"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop seaweedfs -p volume"
+  group vcap
+
+check process filer
+  with pidfile /var/vcap/sys/run/bpm/seaweedfs/filer.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start seaweedfs -p filer"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop seaweedfs -p filer"
+  group vcap
+
+<% if p('seaweedfs.s3.enabled') %>
+check process s3
+  with pidfile /var/vcap/sys/run/bpm/seaweedfs/s3.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start seaweedfs -p s3"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop seaweedfs -p s3"
+  group vcap
+<% end %>
+
+<% else %>
+# This file intentionally left blank
+# SeaweedFS job is only run on the bootstrap instance
+<% end %>

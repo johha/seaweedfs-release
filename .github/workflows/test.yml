@@ -1,0 +1,46 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install BOSH CLI
+        run: |
+          wget -q https://github.com/cloudfoundry/bosh-cli/releases/download/v7.5.5/bosh-cli-7.5.5-linux-amd64
+          chmod +x bosh-cli-7.5.5-linux-amd64
+          sudo mv bosh-cli-7.5.5-linux-amd64 /usr/local/bin/bosh
+
+      - name: Validate Release Structure
+        run: |
+          # Check required directories exist
+          test -d jobs || (echo "jobs/ directory missing" && exit 1)
+          test -d packages || (echo "packages/ directory missing" && exit 1)
+          test -d config || (echo "config/ directory missing" && exit 1)
+          test -f config/final.yml || (echo "config/final.yml missing" && exit 1)
+          test -f config/blobs.yml || (echo "config/blobs.yml missing" && exit 1)
+
+      - name: Create Dev Release
+        run: |
+          bosh create-release --force --timestamp-version --tarball=/tmp/seaweedfs-dev.tgz
+
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: seaweedfs-dev-release
+          path: /tmp/seaweedfs-dev.tgz
+          retention-days: 7

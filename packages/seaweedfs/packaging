@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -e -u -x
+
+# renovate: datasource=github-releases depName=seaweedfs/seaweedfs
+VERSION=3.73
+
+echo "Installing SeaweedFS ${VERSION}..."
+
+# Extract the SeaweedFS binary
+tar -xzf seaweedfs/weed-${VERSION}-linux-amd64.tar.gz
+
+# Install to BOSH_INSTALL_TARGET
+mkdir -p "${BOSH_INSTALL_TARGET}/bin"
+cp weed "${BOSH_INSTALL_TARGET}/bin/"
+chmod +x "${BOSH_INSTALL_TARGET}/bin/weed"
+
+# Verify installation
+"${BOSH_INSTALL_TARGET}/bin/weed" version

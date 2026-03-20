@@ -1,0 +1,44 @@
+#!/bin/bash
+
+set -e -u
+
+# Pre-start script for SeaweedFS
+# Prepares directories and initializes buckets
+
+LOG_DIR=/var/vcap/sys/log/seaweedfs
+RUN_DIR=/var/vcap/sys/run/seaweedfs
+STORE_DIR=/var/vcap/store/seaweedfs
+
+echo "$(date): Starting SeaweedFS pre-start script"
+
+# Create necessary directories
+mkdir -p "${LOG_DIR}"
+mkdir -p "${RUN_DIR}"
+mkdir -p "${STORE_DIR}/master"
+mkdir -p "<%= p('seaweedfs.volume.data_dir') %>"
+mkdir -p "<%= p('seaweedfs.filer.data_dir') %>"
+mkdir -p "<%= p('seaweedfs.filer.default_leveldb_dir') %>"
+
+# Set ownership to vcap
+chown -R vcap:vcap "${LOG_DIR}"
+chown -R vcap:vcap "${RUN_DIR}"
+chown -R vcap:vcap "${STORE_DIR}"
+
+# Set permissions
+chmod 755 "${STORE_DIR}"
+chmod 755 "${STORE_DIR}/master"
+chmod 755 "<%= p('seaweedfs.volume.data_dir') %>"
+chmod 755 "<%= p('seaweedfs.filer.data_dir') %>"
+chmod 755 "<%= p('seaweedfs.filer.default_leveldb_dir') %>"
+
+<% if p('seaweedfs.tls.enabled') %>
+# Set SSL certificate permissions
+chmod 600 /var/vcap/jobs/seaweedfs/ssl/server.key
+chmod 644 /var/vcap/jobs/seaweedfs/ssl/server.crt
+chown vcap:vcap /var/vcap/jobs/seaweedfs/ssl/server.key
+chown vcap:vcap /var/vcap/jobs/seaweedfs/ssl/server.crt
+<% end %>
+
+echo "$(date): Pre-start script completed successfully"
+
+exit 0

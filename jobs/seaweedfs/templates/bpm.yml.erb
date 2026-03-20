@@ -1,0 +1,74 @@
+---
+processes:
+- name: master
+  executable: /var/vcap/packages/seaweedfs/bin/weed
+  args:
+  - master
+  - -ip=<%= spec.networks.marshal_dump.values.first.ip %>
+  - -port=<%= p('seaweedfs.master.port') %>
+  - -mdir=/var/vcap/store/seaweedfs/master
+  - -defaultReplication=<%= p('seaweedfs.master.default_replication') %>
+  - -volumeSizeLimitMB=<%= p('seaweedfs.master.volume_size_limit_mb') %>
+  - -glog.v=<%= p('seaweedfs.log_level') %>
+  env:
+    WEED_MASTER_VOLUME_SIZE_LIMIT_MB: <%= p('seaweedfs.master.volume_size_limit_mb') %>
+  limits:
+    open_files: 65536
+  persistent_disk: true
+
+- name: volume
+  executable: /var/vcap/packages/seaweedfs/bin/weed
+  args:
+  - volume
+  - -ip=<%= spec.networks.marshal_dump.values.first.ip %>
+  - -port=<%= p('seaweedfs.volume.port') %>
+  - -dir=<%= p('seaweedfs.volume.data_dir') %>
+  - -max=<%= p('seaweedfs.volume.max_volumes') %>
+  - -mserver=127.0.0.1:<%= p('seaweedfs.master.port') %>
+  - -glog.v=<%= p('seaweedfs.log_level') %>
+  env:
+    WEED_VOLUME_MAX: <%= p('seaweedfs.volume.max_volumes') %>
+  limits:
+    open_files: 65536
+  persistent_disk: true
+
+- name: filer
+  executable: /var/vcap/packages/seaweedfs/bin/weed
+  args:
+  - filer
+  - -ip=<%= spec.networks.marshal_dump.values.first.ip %>
+  - -port=<%= p('seaweedfs.filer.port') %>
+  - -master=127.0.0.1:<%= p('seaweedfs.master.port') %>
+  - -defaultReplicaPlacement=<%= p('seaweedfs.master.default_replication') %>
+  - -encryptVolumeData=false
+  - -glog.v=<%= p('seaweedfs.log_level') %>
+  env:
+    WEED_LEVELDB2_ENABLED: "true"
+    WEED_LEVELDB2_DIR: <%= p('seaweedfs.filer.default_leveldb_dir') %>
+  limits:
+    open_files: 65536
+  persistent_disk: true
+
+<% if p('seaweedfs.s3.enabled') %>
+- name: s3
+  executable: /var/vcap/packages/seaweedfs/bin/weed
+  args:
+  - s3
+  - -ip=<%= spec.networks.marshal_dump.values.first.ip %>
+  - -port=<%= p('seaweedfs.s3.port') %>
+  - -filer=127.0.0.1:<%= p('seaweedfs.filer.port') %>
+  - -config=/var/vcap/jobs/seaweedfs/config/s3.json
+  <% if p('seaweedfs.tls.enabled') %>
+  - -cert.file=/var/vcap/jobs/seaweedfs/ssl/server.crt
+  - -key.file=/var/vcap/jobs/seaweedfs/ssl/server.key
+  <% end %>
+  <% if p('seaweedfs.mutual_tls.enabled') %>
+  - -tlsVerifyClientCert
+  - -tlsClientCA=/var/vcap/jobs/seaweedfs/ssl/ca.crt
+  <% end %>
+  - -glog.v=<%= p('seaweedfs.log_level') %>
+  env:
+    WEED_S3_PORT: <%= p('seaweedfs.s3.port') %>
+  limits:
+    open_files: 65536
+<% end %>

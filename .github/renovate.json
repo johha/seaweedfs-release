@@ -1,0 +1,39 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base"
+  ],
+  "packageRules": [
+    {
+      "description": "Track SeaweedFS releases",
+      "matchDatasources": ["github-releases"],
+      "matchPackageNames": ["seaweedfs/seaweedfs"],
+      "groupName": "seaweedfs",
+      "automerge": false,
+      "schedule": ["before 3am on Monday"]
+    }
+  ],
+  "regexManagers": [
+    {
+      "fileMatch": ["^packages/seaweedfs/spec$"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\n.*?-\\s+seaweedfs/weed-(?<currentValue>.*?)\\.tar\\.gz"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "seaweedfs/seaweedfs"
+    },
+    {
+      "fileMatch": ["^packages/seaweedfs/packaging$"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\nVERSION=(?<currentValue>.*)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "seaweedfs/seaweedfs"
+    }
+  ],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "labels": ["dependencies"],
+  "assignees": [],
+  "reviewers": []
+}

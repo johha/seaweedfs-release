@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+set -e -u
+
+# BBR Backup Script for SeaweedFS
+
+<% unless p('seaweedfs.backup.enabled') %>
+echo "Backup is disabled via seaweedfs.backup.enabled property"
+exit 0
+<% end %>
+
+BACKUP_DIR="${BBR_ARTIFACT_DIRECTORY}"
+STORE_DIR="/var/vcap/store/seaweedfs"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+echo "$(date): Starting SeaweedFS backup"
+echo "Backup directory: ${BACKUP_DIR}"
+
+# Create backup directory structure
+mkdir -p "${BACKUP_DIR}"
+
+# Stop write operations by stopping S3 and filer processes temporarily
+# to ensure data consistency
+echo "Pausing write operations..."
+
+<% if p('seaweedfs.s3.enabled') %>
+/var/vcap/jobs/bpm/bin/bpm stop seaweedfs -p s3 || true
+<% end %>
+/var/vcap/jobs/bpm/bin/bpm stop seaweedfs -p filer || true
+
+# Give processes time to shutdown gracefully
+sleep 3
+
+# Backup the data directories
+echo "Backing up master data..."
+tar -czf "${BACKUP_DIR}/master_${TIMESTAMP}.tar.gz" \
+  -C "${STORE_DIR}" master
+
+echo "Backing up volume data..."
+tar -czf "${BACKUP_DIR}/volume_${TIMESTAMP}.tar.gz" \
+  -C "$(dirname <%= p('seaweedfs.volume.data_dir') %>)" \
+  "$(basename <%= p('seaweedfs.volume.data_dir') %>)"
+
+echo "Backing up filer data..."
+tar -czf "${BACKUP_DIR}/filer_${TIMESTAMP}.tar.gz" \
+  -C "$(dirname <%= p('seaweedfs.filer.data_dir') %>)" \
+  "$(basename <%= p('seaweedfs.filer.data_dir') %>)"
+
+echo "Backing up filer database..."
+tar -czf "${BACKUP_DIR}/filer_db_${TIMESTAMP}.tar.gz" \
+  -C "$(dirname <%= p('seaweedfs.filer.default_leveldb_dir') %>)" \
+  "$(basename <%= p('seaweedfs.filer.default_leveldb_dir') %>)"
+
+# Restart the processes
+echo "Resuming write operations..."
+/var/vcap/jobs/bpm/bin/bpm start seaweedfs -p filer
+<% if p('seaweedfs.s3.enabled') %>
+/var/vcap/jobs/bpm/bin/bpm start seaweedfs -p s3
+<% end %>
+
+# Create a metadata file
+cat > "${BACKUP_DIR}/metadata.json" <<EOF
+{
+  "timestamp": "${TIMESTAMP}",
+  "backup_time": "$(date -Iseconds)",
+  "seaweedfs_version": "$(/var/vcap/packages/seaweedfs/bin/weed version | head -1)",
+  "files": [
+    "master_${TIMESTAMP}.tar.gz",
+    "volume_${TIMESTAMP}.tar.gz",
+    "filer_${TIMESTAMP}.tar.gz",
+    "filer_db_${TIMESTAMP}.tar.gz"
+  ]
+}
+EOF
+
+echo "$(date): Backup completed successfully"
+echo "Backup artifacts:"
+ls -lh "${BACKUP_DIR}"
+
+exit 0

@@ -1,0 +1,137 @@
+---
+name: seaweedfs
+
+templates:
+  bpm.yml.erb:           config/bpm.yml
+  pre-start.sh.erb:      bin/pre-start
+  post-start.sh.erb:     bin/post-start
+  drain.sh.erb:          bin/drain
+
+  config/master.conf.erb:  config/master.conf
+  config/filer.toml.erb:   config/filer.toml
+  config/s3.json.erb:      config/s3.json
+
+  ssl/server.crt.erb:    ssl/server.crt
+  ssl/server.key.erb:    ssl/server.key
+  ssl/ca.crt.erb:        ssl/ca.crt
+
+  bin/backup.erb:        bin/bbr/backup
+  bin/restore.erb:       bin/bbr/restore
+
+packages:
+- seaweedfs
+
+consumes:
+- name: directories_to_backup
+  type: directories_to_backup
+  optional: true
+
+properties:
+  # S3 Configuration
+  seaweedfs.s3.enabled:
+    description: Enable S3 API gateway
+    default: true
+
+  seaweedfs.s3.port:
+    description: TCP port for S3 API
+    default: 8333
+
+  seaweedfs.s3.domain_name:
+    description: Domain name for S3 endpoint (e.g., blobstore.system.domain)
+
+  seaweedfs.s3.access_key:
+    description: S3 access key ID for authentication
+
+  seaweedfs.s3.secret_key:
+    description: S3 secret access key for authentication
+
+  seaweedfs.s3.buckets:
+    description: List of S3 buckets to create on startup
+    default:
+    - "buildpacks"
+    - "droplets"
+    - "packages"
+    - "resources"
+
+  # TLS Configuration
+  seaweedfs.tls.enabled:
+    description: Enable TLS for S3 endpoint
+    default: true
+
+  seaweedfs.tls.cert:
+    description: PEM-encoded TLS certificate for S3 endpoint
+
+  seaweedfs.tls.private_key:
+    description: PEM-encoded TLS private key for S3 endpoint
+
+  seaweedfs.tls.ca_cert:
+    description: PEM-encoded CA certificate for TLS certificate verification
+
+  # Mutual TLS (mTLS) Configuration
+  seaweedfs.mutual_tls.enabled:
+    description: |
+      Enable mutual TLS (client certificate verification).
+      When enabled, clients must present valid certificates signed by the CA.
+      This is standard in CF deployments for secure service-to-service communication.
+    default: false
+
+  seaweedfs.mutual_tls.ca_cert:
+    description: |
+      PEM-encoded CA certificate for verifying client certificates.
+      Typically use the same CA as cf-deployment (e.g., service_cf_internal_ca).
+    default: ""
+
+  seaweedfs.mutual_tls.verify_client:
+    description: |
+      Client certificate verification mode for mTLS.
+      Options: "require" (mandatory), "optional" (optional), "none" (disabled)
+    default: "require"
+
+  # Master Server Configuration
+  seaweedfs.master.port:
+    description: TCP port for master server
+    default: 9333
+
+  seaweedfs.master.default_replication:
+    description: Default replication strategy (000 = no replication for single node)
+    default: "000"
+
+  seaweedfs.master.volume_size_limit_mb:
+    description: Volume size limit in MB
+    default: 30000
+
+  # Volume Server Configuration
+  seaweedfs.volume.port:
+    description: TCP port for volume server
+    default: 8080
+
+  seaweedfs.volume.max_volumes:
+    description: Maximum number of volumes
+    default: 100
+
+  seaweedfs.volume.data_dir:
+    description: Directory for volume data storage
+    default: "/var/vcap/store/seaweedfs/volume"
+
+  # Filer Configuration
+  seaweedfs.filer.port:
+    description: TCP port for filer
+    default: 8888
+
+  seaweedfs.filer.data_dir:
+    description: Directory for filer metadata storage
+    default: "/var/vcap/store/seaweedfs/filer"
+
+  seaweedfs.filer.default_leveldb_dir:
+    description: Directory for filer LevelDB backend
+    default: "/var/vcap/store/seaweedfs/filer_db"
+
+  # BBR Configuration
+  seaweedfs.backup.enabled:
+    description: Enable BBR backup and restore
+    default: true
+
+  # Logging
+  seaweedfs.log_level:
+    description: Log level (0=debug, 1=info, 2=warn, 3=error)
+    default: 1

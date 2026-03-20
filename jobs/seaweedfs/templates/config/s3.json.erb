@@ -1,0 +1,20 @@
+{
+  "identities": [
+    {
+      "name": "default",
+      "credentials": [
+        {
+          "accessKey": "<%= p('seaweedfs.s3.access_key') %>",
+          "secretKey": "<%= p('seaweedfs.s3.secret_key') %>"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "List",
+        "Tagging",
+        "Write"
+      ]
+    }
+  ]
+}

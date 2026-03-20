@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -e -u
+
+# Drain script for SeaweedFS
+# Gracefully shutdown processes before VM shutdown
+
+echo "$(date): Starting SeaweedFS drain script"
+
+# BPM handles process shutdown, but we can add graceful logic here if needed
+# For now, just signal that we're ready to drain
+
+echo "$(date): Drain script completed"
+
+# Return 0 to indicate drain is complete
+exit 0

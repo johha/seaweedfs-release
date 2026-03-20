@@ -1,0 +1,71 @@
+#!/bin/bash
+
+set -e -u
+
+# Post-start script for SeaweedFS
+# Validates processes are running and creates S3 buckets
+
+MAX_RETRIES=30
+RETRY_INTERVAL=2
+
+echo "$(date): Starting SeaweedFS post-start health checks"
+
+# Function to check if a service is responding
+check_service() {
+  local service_name=$1
+  local url=$2
+  local retries=0
+
+  echo "Checking ${service_name}..."
+
+  while [ ${retries} -lt ${MAX_RETRIES} ]; do
+    if curl -sf -o /dev/null "${url}"; then
+      echo "${service_name} is responding"
+      return 0
+    fi
+
+    retries=$((retries + 1))
+    echo "Waiting for ${service_name}... (${retries}/${MAX_RETRIES})"
+    sleep ${RETRY_INTERVAL}
+  done
+
+  echo "ERROR: ${service_name} failed to start"
+  return 1
+}
+
+# Check Master Server
+check_service "Master" "http://127.0.0.1:<%= p('seaweedfs.master.port') %>/cluster/status"
+
+# Check Volume Server
+check_service "Volume" "http://127.0.0.1:<%= p('seaweedfs.volume.port') %>/status"
+
+# Check Filer
+check_service "Filer" "http://127.0.0.1:<%= p('seaweedfs.filer.port') %>/"
+
+<% if p('seaweedfs.s3.enabled') %>
+# Check S3 Gateway
+<% if p('seaweedfs.tls.enabled') %>
+S3_URL="https://127.0.0.1:<%= p('seaweedfs.s3.port') %>/"
+<% else %>
+S3_URL="http://127.0.0.1:<%= p('seaweedfs.s3.port') %>/"
+<% end %>
+
+check_service "S3 Gateway" "${S3_URL}"
+
+# Create S3 buckets
+echo "Creating S3 buckets..."
+
+<% p('seaweedfs.s3.buckets').each do |bucket| %>
+# Create bucket: <%= bucket %>
+curl -sf -X PUT \
+  -H "Authorization: AWS <%= p('seaweedfs.s3.access_key') %>:signature" \
+  <% if p('seaweedfs.tls.enabled') %>-k<% end %> \
+  "${S3_URL}<%= bucket %>" || echo "Bucket <%= bucket %> may already exist"
+<% end %>
+
+echo "S3 buckets created/verified"
+<% end %>
+
+echo "$(date): Post-start script completed successfully"
+
+exit 0

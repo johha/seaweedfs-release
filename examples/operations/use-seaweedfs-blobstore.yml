@@ -1,0 +1,179 @@
+---
+# cf-deployment operations file
+# Replaces singleton-blobstore with SeaweedFS
+#
+# ⚠️ DEV/TEST ENVIRONMENTS ONLY
+# This is for local development, CI/CD test pipelines, and POC evaluation.
+# DO NOT use this in production, staging, or any environment requiring availability.
+#
+# For production CF deployments, use:
+# - operations/use-s3-blobstore.yml (with AWS S3)
+# - operations/use-gcs-blobstore-*.yml (with Google Cloud Storage)
+# - operations/use-azure-storage-blobstore.yml (with Azure Blob)
+#
+
+# Replace the blobstore job with seaweedfs
+- type: replace
+  path: /instance_groups/name=singleton-blobstore/jobs/name=blobstore
+  value:
+    name: seaweedfs
+    release: seaweedfs
+    properties:
+      seaweedfs:
+        s3:
+          enabled: true
+          port: 8333
+          domain_name: ((system_domain))
+          # Auto-generated credentials
+          access_key: ((seaweedfs_access_key))
+          secret_key: ((seaweedfs_secret_key))
+          buckets:
+          - buildpacks
+          - droplets
+          - packages
+          - resources
+
+        tls:
+          enabled: true
+          cert: ((seaweedfs_tls.certificate))
+          private_key: ((seaweedfs_tls.private_key))
+          ca_cert: ((seaweedfs_tls.ca))
+
+        # Enable mTLS for CF internal communication
+        # Matches cf-deployment security standards
+        mutual_tls:
+          enabled: true
+          ca_cert: ((service_cf_internal_ca.certificate))
+          verify_client: "require"
+
+        master:
+          port: 9333
+          default_replication: "000"
+
+        volume:
+          port: 8080
+          max_volumes: 100
+
+        filer:
+          port: 8888
+
+        backup:
+          enabled: true
+
+# Add seaweedfs release
+- type: replace
+  path: /releases/name=seaweedfs?
+  value:
+    name: seaweedfs
+    version: latest
+
+# Update Cloud Controller to use S3 configuration
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/buildpacks/blobstore_type
+  value: s3
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/buildpacks/buildpack_directory_key
+  value: buildpacks
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/buildpacks/fog_connection
+  value:
+    provider: AWS
+    endpoint: https://((system_domain)):8333
+    aws_access_key_id: ((seaweedfs_access_key))
+    aws_secret_access_key: ((seaweedfs_secret_key))
+    region: local
+    path_style: true
+    aws_signature_version: "4"
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/droplets/blobstore_type
+  value: s3
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/droplets/droplet_directory_key
+  value: droplets
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/droplets/fog_connection
+  value:
+    provider: AWS
+    endpoint: https://((system_domain)):8333
+    aws_access_key_id: ((seaweedfs_access_key))
+    aws_secret_access_key: ((seaweedfs_secret_key))
+    region: local
+    path_style: true
+    aws_signature_version: "4"
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/packages/blobstore_type
+  value: s3
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/packages/app_package_directory_key
+  value: packages
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/packages/fog_connection
+  value:
+    provider: AWS
+    endpoint: https://((system_domain)):8333
+    aws_access_key_id: ((seaweedfs_access_key))
+    aws_secret_access_key: ((seaweedfs_secret_key))
+    region: local
+    path_style: true
+    aws_signature_version: "4"
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/resource_pool/blobstore_type
+  value: s3
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/resource_pool/resource_directory_key
+  value: resources
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=cloud_controller_ng/properties/cc/resource_pool/fog_connection
+  value:
+    provider: AWS
+    endpoint: https://((system_domain)):8333
+    aws_access_key_id: ((seaweedfs_access_key))
+    aws_secret_access_key: ((seaweedfs_secret_key))
+    region: local
+    path_style: true
+    aws_signature_version: "4"
+
+# Add variables for SeaweedFS credentials
+- type: replace
+  path: /variables/name=seaweedfs_access_key?
+  value:
+    name: seaweedfs_access_key
+    type: password
+
+- type: replace
+  path: /variables/name=seaweedfs_secret_key?
+  value:
+    name: seaweedfs_secret_key
+    type: password
+
+- type: replace
+  path: /variables/name=seaweedfs_ca?
+  value:
+    name: seaweedfs_ca
+    type: certificate
+    options:
+      is_ca: true
+      common_name: seaweedfsCA
+
+- type: replace
+  path: /variables/name=seaweedfs_tls?
+  value:
+    name: seaweedfs_tls
+    type: certificate
+    options:
+      ca: seaweedfs_ca
+      common_name: ((system_domain))
+      alternative_names:
+      - ((system_domain))
+      - "*.((system_domain))"
